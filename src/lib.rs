@@ -97,9 +97,9 @@ unsafe extern "C" fn failure_disp() {
     panic!("LibVEX called the display function.")
 }
 
-pub struct VexTranslateArgs(pub vex_sys::VexTranslateArgs);
+pub struct TranslateArgs(pub vex_sys::VexTranslateArgs);
 
-impl VexTranslateArgs {
+impl TranslateArgs {
     pub fn new(arch_guest: Arch, arch_host: Arch, endness: VexEndness) -> Self {
         let abiinfo_both = AbiInfo::default();
         let archinfo_guest = ArchInfo::default();
@@ -152,6 +152,79 @@ impl VexTranslateArgs {
             disp_cp_xassisted: failure_disp as *const _,
         })
     }
+
+    /// Call VEX's front-end method, LibVEX_FrontEnd.
+    ///
+    /// The IRSB returned doesn't actually need the same lifetime as `self`,
+    /// but this helps prevent calling the front-end in a way that would
+    /// invalidate IRSBs that are still in use, with a compile time check.
+    pub fn front_end(
+        &mut self,
+        guest_bytes: *const u8,
+        guest_bytes_addr: u64,
+    ) -> Result<ir::IRSB, ()> {
+        use std::mem::MaybeUninit;
+        init();
+
+        let mut vtr = MaybeUninit::<vex_sys::VexTranslateResult>::uninit();
+        let mut ge = MaybeUninit::<vex_sys::VexGuestExtents>::uninit();
+        self.0.guest_extents = ge.as_mut_ptr();
+        let mut host_bytes: [u8; 100] = [0; 100];
+        let mut host_bytes_used = 0;
+        self.0.host_bytes = host_bytes.as_mut_ptr();
+        self.0.host_bytes_size = host_bytes.len() as i32;
+        self.0.host_bytes_used = &mut host_bytes_used;
+        self.0.guest_bytes = guest_bytes;
+        self.0.guest_bytes_addr = guest_bytes_addr;
+
+        let _lock = LIFT_LOCK.lock();
+        let irsb = unsafe {
+            vex_sys::LibVEX_FrontEnd(
+                &mut self.0,
+                vtr.as_mut_ptr(),
+                #[allow(const_item_mutation)]
+                &mut vex_sys::VexRegisterUpdates::VexRegUpd_INVALID)
+        };
+        let vtr = unsafe { vtr.assume_init() };
+
+        match vtr.status {
+            vex_sys::VexTranslateResult_VexTransOK => Ok(ir::IRSB {
+                inner: unsafe { &*irsb },
+                _lock,
+            }),
+            vex_sys::VexTranslateResult_VexTransAccessFail => Err(()),
+            vex_sys::VexTranslateResult_VexTransOutputFull => Err(()),
+        }
+    }
+
+    /// Call VEX's translate method, LibVEX_Translate.
+    pub fn translate(
+        &mut self,
+        guest_bytes: *const u8,
+        guest_bytes_addr: u64,
+        host_bytes: &mut [u8],
+    ) -> Result<i32, ()> {
+        use std::mem::MaybeUninit;
+        init();
+
+        let mut ge = MaybeUninit::<vex_sys::VexGuestExtents>::uninit();
+        self.0.guest_extents = ge.as_mut_ptr();
+        let mut host_bytes_used = 0;
+        self.0.host_bytes = host_bytes.as_mut_ptr();
+        self.0.host_bytes_size = host_bytes.len() as i32;
+        self.0.host_bytes_used = &mut host_bytes_used;
+        self.0.guest_bytes = guest_bytes;
+        self.0.guest_bytes_addr = guest_bytes_addr;
+
+        let _lock = LIFT_LOCK.lock();
+        let vtr = unsafe { vex_sys::LibVEX_Translate(&mut self.0) };
+
+        match vtr.status {
+            vex_sys::VexTranslateResult_VexTransOK => Ok(host_bytes_used),
+            vex_sys::VexTranslateResult_VexTransAccessFail => Err(()),
+            vex_sys::VexTranslateResult_VexTransOutputFull => Err(()),
+        }
+    }
 }
 
 // VEX uses a static buffer (named `temporary`, in main_globals.c) for the
@@ -186,54 +259,19 @@ lazy_static! {
     static ref LIFT_LOCK: LiftLock = LiftLock::new();
 }
 
-pub fn front_end<'a>(vta: &mut VexTranslateArgs) -> Result<ir::IRSB<'a>, ()> {
-    use std::mem::MaybeUninit;
-    init();
-
-    let mut vtr = MaybeUninit::<vex_sys::VexTranslateResult>::uninit();
-    let mut ge = MaybeUninit::<vex_sys::VexGuestExtents>::uninit();
-    vta.0.guest_extents = ge.as_mut_ptr();
-    let mut host_bytes: [u8; 100] = [0; 100];
-    let mut host_bytes_used = 0;
-    vta.0.host_bytes = host_bytes.as_mut_ptr();
-    vta.0.host_bytes_size = host_bytes.len() as i32;
-    vta.0.host_bytes_used = &mut host_bytes_used;
-
-    let _lock = LIFT_LOCK.lock();
-    let irsb = unsafe {
-        vex_sys::LibVEX_FrontEnd(
-            &mut vta.0,
-            vtr.as_mut_ptr(),
-            #[allow(const_item_mutation)]
-            &mut vex_sys::VexRegisterUpdates::VexRegUpd_INVALID)
-    };
-    let vtr = unsafe { vtr.assume_init() };
-
-    match vtr.status {
-        vex_sys::VexTranslateResult_VexTransOK => Ok(ir::IRSB {
-            inner: unsafe { &*irsb },
-            _lock,
-        }),
-        vex_sys::VexTranslateResult_VexTransAccessFail => Err(()),
-        vex_sys::VexTranslateResult_VexTransOutputFull => Err(()),
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::{Arch, VexEndness, VexTranslateArgs};
+    use super::{Arch, VexEndness, TranslateArgs};
 
     #[test]
     fn sanity() {
-        let mut vta = VexTranslateArgs::new(
+        let mut vta = TranslateArgs::new(
             Arch::VexArchAMD64,
             Arch::VexArchAMD64,
             VexEndness::VexEndnessLE,
         );
-        vta.0.guest_bytes = sanity as *const _;
-        vta.0.guest_bytes_addr = sanity as _;
 
-        let irsb = super::front_end(&mut vta).unwrap();
+        let irsb = vta.front_end(sanity as *const _, sanity as _).unwrap();
 
         println!("{}", irsb);
 
@@ -247,15 +285,13 @@ mod test {
     #[test]
     #[should_panic]
     fn double_lift() {
-        let mut vta = VexTranslateArgs::new(
+        let mut vta = TranslateArgs::new(
             Arch::VexArchAMD64,
             Arch::VexArchAMD64,
             VexEndness::VexEndnessLE,
         );
-        vta.0.guest_bytes = sanity as *const _;
-        vta.0.guest_bytes_addr = sanity as _;
 
-        let irsb = super::front_end(&mut vta).unwrap();
+        let irsb = vta.front_end(sanity as *const _, sanity as _).unwrap();
 
         // get another irsb
         let next = match irsb.next().as_enum() {
@@ -265,8 +301,31 @@ mod test {
             }
             _ => panic!(),
         };
-        vta.0.guest_bytes = next as *const _;
-        vta.0.guest_bytes_addr = next as _;
-        let _irsb2 = super::front_end(&mut vta).unwrap();
+
+        let mut vta2 = TranslateArgs::new(
+            Arch::VexArchAMD64,
+            Arch::VexArchAMD64,
+            VexEndness::VexEndnessLE,
+        );
+        let _irsb2 = vta2.front_end(next as *const _, next as _).unwrap();
+    }
+
+    #[test]
+    fn translate() {
+        let mut vta = TranslateArgs::new(
+            Arch::VexArchAMD64,
+            Arch::VexArchAMD64,
+            VexEndness::VexEndnessLE,
+        );
+
+        let mut buf = [0; 1000];
+
+        let size = vta.translate(
+            translate as *const _,
+            translate as _,
+            &mut buf,
+        ).unwrap();
+
+        assert!(size > 300);
     }
 }
