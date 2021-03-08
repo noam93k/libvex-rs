@@ -1,0 +1,68 @@
+pub use vex_sys::{
+    OFFSET_s390x_r2,
+    OFFSET_s390x_r3,
+    OFFSET_s390x_r4,
+    OFFSET_s390x_r5,
+    OFFSET_s390x_r6,
+    OFFSET_s390x_r7,
+    OFFSET_s390x_r15,
+    OFFSET_s390x_IA,
+    OFFSET_s390x_SYSNO,
+    OFFSET_s390x_IP_AT_SYSCALL,
+    OFFSET_s390x_fpc,
+    OFFSET_s390x_CC_OP,
+    OFFSET_s390x_CC_DEP1,
+    OFFSET_s390x_CC_DEP2,
+    OFFSET_s390x_CC_NDEP,
+
+    VEX_HWCAPS_S390X_LDISP,
+    VEX_HWCAPS_S390X_EIMM,
+    VEX_HWCAPS_S390X_GIE,
+    VEX_HWCAPS_S390X_DFP,
+    VEX_HWCAPS_S390X_FGX,
+    VEX_HWCAPS_S390X_ETF2,
+    VEX_HWCAPS_S390X_STFLE,
+    VEX_HWCAPS_S390X_ETF3,
+    VEX_HWCAPS_S390X_STCKF,
+    VEX_HWCAPS_S390X_FPEXT,
+    VEX_HWCAPS_S390X_LSC,
+    VEX_HWCAPS_S390X_PFPO,
+    VEX_HWCAPS_S390X_VX,
+    VEX_HWCAPS_S390X_MSA5,
+    VEX_HWCAPS_S390X_MI2,
+    VEX_HWCAPS_S390X_LSC2,
+    VEX_HWCAPS_S390X_VXE,
+    VEX_HWCAPS_S390X_ALL,
+
+    VEX_S390X_MODEL_Z900,
+    VEX_S390X_MODEL_Z800,
+    VEX_S390X_MODEL_Z990,
+    VEX_S390X_MODEL_Z890,
+    VEX_S390X_MODEL_Z9_EC,
+    VEX_S390X_MODEL_Z9_BC,
+    VEX_S390X_MODEL_Z10_EC,
+    VEX_S390X_MODEL_Z10_BC,
+    VEX_S390X_MODEL_Z196,
+    VEX_S390X_MODEL_Z114,
+    VEX_S390X_MODEL_ZEC12,
+    VEX_S390X_MODEL_ZBC12,
+    VEX_S390X_MODEL_Z13,
+    VEX_S390X_MODEL_Z13S,
+    VEX_S390X_MODEL_Z14,
+    VEX_S390X_MODEL_Z14_ZR1,
+    VEX_S390X_MODEL_Z15,
+    VEX_S390X_MODEL_UNKNOWN,
+    VEX_S390X_MODEL_MASK,
+};
+
+pub struct State(pub vex_sys::VexGuestS390XState);
+
+impl Default for State {
+    fn default() -> Self {
+        let mut this = std::mem::MaybeUninit::uninit();
+        Self(unsafe {
+            vex_sys::LibVEX_GuestS390X_initialise(this.as_mut_ptr());
+            this.assume_init()
+        })
+    }
+}
