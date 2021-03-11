@@ -97,6 +97,14 @@ unsafe extern "C" fn failure_disp() {
     panic!("LibVEX called the display function.")
 }
 
+#[derive(Copy, Clone, Debug)]
+pub enum TranslateError {
+    AccessFail,
+    OutputFull,
+}
+
+pub type TranslateResult<T> = Result<T, TranslateError>;
+
 pub struct TranslateArgs(pub vex_sys::VexTranslateArgs);
 
 impl TranslateArgs {
@@ -162,7 +170,7 @@ impl TranslateArgs {
         &mut self,
         guest_bytes: *const u8,
         guest_bytes_addr: u64,
-    ) -> Result<ir::IRSB, ()> {
+    ) -> TranslateResult<ir::IRSB> {
         use std::mem::MaybeUninit;
         init();
 
@@ -192,8 +200,8 @@ impl TranslateArgs {
                 inner: unsafe { &*irsb },
                 _lock,
             }),
-            vex_sys::VexTranslateResult_VexTransAccessFail => Err(()),
-            vex_sys::VexTranslateResult_VexTransOutputFull => Err(()),
+            vex_sys::VexTranslateResult_VexTransAccessFail => Err(TranslateError::AccessFail),
+            vex_sys::VexTranslateResult_VexTransOutputFull => Err(TranslateError::OutputFull),
         }
     }
 
@@ -203,7 +211,7 @@ impl TranslateArgs {
         guest_bytes: *const u8,
         guest_bytes_addr: u64,
         host_bytes: &mut [u8],
-    ) -> Result<i32, ()> {
+    ) -> TranslateResult<i32> {
         use std::mem::MaybeUninit;
         init();
 
@@ -221,8 +229,8 @@ impl TranslateArgs {
 
         match vtr.status {
             vex_sys::VexTranslateResult_VexTransOK => Ok(host_bytes_used),
-            vex_sys::VexTranslateResult_VexTransAccessFail => Err(()),
-            vex_sys::VexTranslateResult_VexTransOutputFull => Err(()),
+            vex_sys::VexTranslateResult_VexTransAccessFail => Err(TranslateError::AccessFail),
+            vex_sys::VexTranslateResult_VexTransOutputFull => Err(TranslateError::OutputFull),
         }
     }
 }
