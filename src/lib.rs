@@ -101,6 +101,13 @@ unsafe extern "C" fn failure_disp() {
 pub enum TranslateError {
     AccessFail,
     OutputFull,
+    LockError(LockError),
+}
+
+impl From<LockError> for TranslateError {
+    fn from(err: LockError) -> Self {
+        Self::LockError(err)
+    }
 }
 
 pub type TranslateResult<T> = Result<T, TranslateError>;
@@ -185,7 +192,7 @@ impl TranslateArgs {
         self.0.guest_bytes = guest_bytes;
         self.0.guest_bytes_addr = guest_bytes_addr;
 
-        let _lock = LIFT_LOCK.lock();
+        let _lock = LIFT_LOCK.exclusive_lock()?;
         let irsb = unsafe {
             vex_sys::LibVEX_FrontEnd(
                 &mut self.0,
@@ -197,7 +204,7 @@ impl TranslateArgs {
 
         match vtr.status {
             vex_sys::VexTranslateResult_VexTransOK => Ok(ir::IRSB {
-                inner: unsafe { &*irsb },
+                inner: irsb,
                 _lock,
             }),
             vex_sys::VexTranslateResult_VexTransAccessFail => Err(TranslateError::AccessFail),
@@ -224,7 +231,7 @@ impl TranslateArgs {
         self.0.guest_bytes = guest_bytes;
         self.0.guest_bytes_addr = guest_bytes_addr;
 
-        let _lock = LIFT_LOCK.lock();
+        let _lock = LIFT_LOCK.exclusive_lock()?;
         let vtr = unsafe { vex_sys::LibVEX_Translate(&mut self.0) };
 
         match vtr.status {
@@ -237,29 +244,55 @@ impl TranslateArgs {
 
 // VEX uses a static buffer (named `temporary`, in main_globals.c) for the
 // allocation of all IR objects. It is cleared at the begining/end of every
-// *translateion*. This means an IRSB is only valid until the next call to
+// *translation*. This means an IRSB is only valid until the next call to
 // `front_end` or `translate`. We use a Mutex to ensure that these methods are not
 // called while an IRSB is still active.
-struct LiftLock(ReentrantMutex<RefCell<bool>>);
+// However, if a user wants to allocate a new IRSB, the lock still needs to be
+// acquired, but doesn't need to be exclusive (e.g. call front_end() -> create another
+// IRSB -> compare the two).
+struct LiftLock(ReentrantMutex<RefCell<u8>>);
+
+#[derive(Copy, Clone, Debug)]
+pub enum LockError {
+    AlreadyAllocated,
+}
+
+impl std::fmt::Display for LockError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            Self::AlreadyAllocated => "Some VEX objects are already allocated".fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for LockError {}
 
 impl LiftLock {
     fn new() -> Self {
-        Self(ReentrantMutex::new(RefCell::new(false)))
+        Self(ReentrantMutex::new(RefCell::new(0)))
+    }
+
+    fn exclusive_lock(&self) -> Result<LiftGuard, LockError> {
+        let guard = self.0.lock();
+        if *guard.borrow() != 0 {
+            return Err(LockError::AlreadyAllocated);
+        }
+        *guard.borrow_mut() = 1;
+        Ok(LiftGuard(guard))
     }
 
     fn lock(&self) -> LiftGuard {
         let guard = self.0.lock();
-        assert!(!*guard.borrow(), "Already lifting");
-        *guard.borrow_mut() = true;
+        *guard.borrow_mut() += 1;
         LiftGuard(guard)
     }
 }
 
-struct LiftGuard<'a>(ReentrantMutexGuard<'a, RefCell<bool>>);
+struct LiftGuard<'a>(ReentrantMutexGuard<'a, RefCell<u8>>);
 
 impl Drop for LiftGuard<'_> {
     fn drop(&mut self) {
-        *self.0.borrow_mut() = false;
+        *self.0.borrow_mut() -= 1;
     }
 }
 
@@ -283,7 +316,7 @@ mod test {
 
         println!("{}", irsb);
 
-        for mut stmt in irsb.stmts() {
+        for mut stmt in irsb.iter_stmts() {
             if let super::ir::StmtEnum::Put(put) = stmt.as_enum() {
                 println!("Got put with data: {}", put.data());
             }
@@ -335,5 +368,101 @@ mod test {
         ).unwrap();
 
         assert!(size > 300);
+    }
+
+    mod lock_correctly {
+        use super::*;
+        use crate::ir::IRSB;
+
+        // create 2 IRSBs, drop 1, then lift
+        #[test]
+        fn case1() {
+            let _irsb1 = IRSB::new();
+            {
+                let _irsb2 = IRSB::new();
+            }
+            let mut vta = TranslateArgs::new(
+                Arch::VexArchAMD64,
+                Arch::VexArchAMD64,
+                VexEndness::VexEndnessLE,
+            );
+
+            assert!(vta.front_end(
+                case1 as *const _,
+                case1 as _,
+            ).is_err());
+        }
+
+        // lift, then create 1 IRSB
+        #[test]
+        fn case2() {
+            use crate::ir::{Const, Expr, JumpKind, Op, Stmt};
+            use crate::ir::Type::Ity_I64 as I64;
+            use crate::ir::IREndness::Iend_LE as LE;
+            let mut vta = TranslateArgs::new(
+                Arch::VexArchAMD64,
+                Arch::VexArchAMD64,
+                VexEndness::VexEndnessLE,
+            );
+
+            let lifted = vta.front_end(
+                [0xb8, 0, 0, 0, 0, 0xe8, 0x5b, 0xfd, 0xff, 0xff].as_ptr(),
+                0x12eb,
+            ).unwrap();
+
+            let mut expected = IRSB::new();
+            unsafe {
+                expected.set_next(Expr::const_(Const::u64(0x1050)));
+                expected.set_jump_kind(JumpKind::Ijk_Call);
+                expected.set_offs_ip(184);
+                expected.add_stmt(Stmt::imark(0x12eb, 5, 0));
+                expected.add_stmt(Stmt::put(
+                    16,
+                    Expr::const_(Const::u64(0))
+                ));
+                expected.add_stmt(Stmt::put(
+                    184,
+                    Expr::const_(Const::u64(0x12f0))
+                ));
+                expected.add_stmt(Stmt::imark(0x12f0, 5, 0));
+                let _ = expected.type_env().new_tmp(I64);
+                let _ = expected.type_env().new_tmp(I64);
+                let _ = expected.type_env().new_tmp(I64);
+                let t3 = expected.type_env().new_tmp(I64);
+                let t4 = expected.type_env().new_tmp(I64);
+                let t5 = expected.type_env().new_tmp(I64);
+                let _ = expected.type_env().new_tmp(I64);
+
+                expected.add_stmt(Stmt::wr_tmp(
+                    t4, Expr::get(48, I64)
+                ));
+                expected.add_stmt(Stmt::wr_tmp(
+                    t3, Expr::binop(Op::Iop_Sub64,
+                                    Expr::rd_tmp(t4),
+                                    Expr::const_(Const::u64(8)))
+                ));
+                expected.add_stmt(Stmt::put(
+                    48,
+                    Expr::rd_tmp(t3)
+                ));
+                expected.add_stmt(Stmt::store(
+                    LE,
+                    Expr::rd_tmp(t3),
+                    Expr::const_(Const::u64(0x12f5)),
+                ));
+                expected.add_stmt(Stmt::wr_tmp(
+                    t5, Expr::binop(Op::Iop_Sub64,
+                                    Expr::rd_tmp(t3),
+                                    Expr::const_(Const::u64(0x80)))
+                ));
+                expected.add_stmt(Stmt::abi_hint(
+                    Expr::rd_tmp(t5),
+                    128,
+                    Expr::const_(Const::u64(0x1050)),
+                ));
+            }
+
+            assert_eq!(lifted, expected);
+        }
     }
 }
