@@ -9,26 +9,16 @@ use vex_sys::*;
 // Rename some imports
 use vex_sys::{
     _IRExpr__bindgen_ty_1__bindgen_ty_1 as IRBinder,
-    _IRExpr__bindgen_ty_1__bindgen_ty_2 as IRGet,
-    _IRExpr__bindgen_ty_1__bindgen_ty_3 as IRGetI,
-    _IRExpr__bindgen_ty_1__bindgen_ty_4 as IRRdTmp,
-    _IRExpr__bindgen_ty_1__bindgen_ty_7 as IRBinop,
-    _IRExpr__bindgen_ty_1__bindgen_ty_8 as IRUnop,
-    _IRExpr__bindgen_ty_1__bindgen_ty_9 as IRLoad,
-    _IRExpr__bindgen_ty_1__bindgen_ty_11 as IRCCall,
-    _IRExpr__bindgen_ty_1__bindgen_ty_12 as IRITE,
-
-    _IRStmt__bindgen_ty_1__bindgen_ty_2 as IRIMark,
-    _IRStmt__bindgen_ty_1__bindgen_ty_3 as IRAbiHint,
-    _IRStmt__bindgen_ty_1__bindgen_ty_4 as IRPut,
-    _IRStmt__bindgen_ty_1__bindgen_ty_5 as IRPutI,
-    _IRStmt__bindgen_ty_1__bindgen_ty_6 as IRWrTmp,
+    _IRExpr__bindgen_ty_1__bindgen_ty_11 as IRCCall, _IRExpr__bindgen_ty_1__bindgen_ty_12 as IRITE,
+    _IRExpr__bindgen_ty_1__bindgen_ty_2 as IRGet, _IRExpr__bindgen_ty_1__bindgen_ty_3 as IRGetI,
+    _IRExpr__bindgen_ty_1__bindgen_ty_4 as IRRdTmp, _IRExpr__bindgen_ty_1__bindgen_ty_7 as IRBinop,
+    _IRExpr__bindgen_ty_1__bindgen_ty_8 as IRUnop, _IRExpr__bindgen_ty_1__bindgen_ty_9 as IRLoad,
+    _IRStmt__bindgen_ty_1__bindgen_ty_10 as IRCAS, _IRStmt__bindgen_ty_1__bindgen_ty_11 as IRLLSC,
+    _IRStmt__bindgen_ty_1__bindgen_ty_12 as IRDirty, _IRStmt__bindgen_ty_1__bindgen_ty_13 as IRMBE,
+    _IRStmt__bindgen_ty_1__bindgen_ty_14 as IRExit, _IRStmt__bindgen_ty_1__bindgen_ty_2 as IRIMark,
+    _IRStmt__bindgen_ty_1__bindgen_ty_3 as IRAbiHint, _IRStmt__bindgen_ty_1__bindgen_ty_4 as IRPut,
+    _IRStmt__bindgen_ty_1__bindgen_ty_5 as IRPutI, _IRStmt__bindgen_ty_1__bindgen_ty_6 as IRWrTmp,
     _IRStmt__bindgen_ty_1__bindgen_ty_7 as IRStore,
-    _IRStmt__bindgen_ty_1__bindgen_ty_10 as IRCAS,
-    _IRStmt__bindgen_ty_1__bindgen_ty_11 as IRLLSC,
-    _IRStmt__bindgen_ty_1__bindgen_ty_12 as IRDirty,
-    _IRStmt__bindgen_ty_1__bindgen_ty_13 as IRMBE,
-    _IRStmt__bindgen_ty_1__bindgen_ty_14 as IRExit,
 };
 
 use super::logger;
@@ -66,7 +56,7 @@ macro_rules! wrapper {
                 Self::from(ptr as *mut _)
             }
         }
-    }
+    };
 }
 
 #[derive(Copy, Clone)]
@@ -102,14 +92,14 @@ impl Const<'_> {
             IRConstTag::Ico_V128 => {
                 let val = unsafe { co.Ico.V128 };
                 let vec = V128 {
-                    w16: [val, val, val, val, val, val, val, val]
+                    w16: [val, val, val, val, val, val, val, val],
                 };
                 ConstEnum::V128(vec)
             }
             IRConstTag::Ico_V256 => {
                 let val = unsafe { co.Ico.V256 };
                 let vec = V256 {
-                    w32: [val, val, val, val, val, val, val, val]
+                    w32: [val, val, val, val, val, val, val, val],
                 };
                 ConstEnum::V256(vec)
             }
@@ -399,14 +389,7 @@ impl ExprVec<'_> {
         unsafe { mkIRExprVec_5(arg1.0, arg2.0, arg3.0, arg4.0, arg5.0) }.into()
     }
 
-    pub fn new6(
-        arg1: Expr,
-        arg2: Expr,
-        arg3: Expr,
-        arg4: Expr,
-        arg5: Expr,
-        arg6: Expr,
-    ) -> Self {
+    pub fn new6(arg1: Expr, arg2: Expr, arg3: Expr, arg4: Expr, arg5: Expr, arg6: Expr) -> Self {
         unsafe { mkIRExprVec_6(arg1.0, arg2.0, arg3.0, arg4.0, arg5.0, arg6.0) }.into()
     }
 
@@ -419,15 +402,7 @@ impl ExprVec<'_> {
         arg6: Expr,
         arg7: Expr,
     ) -> Self {
-        unsafe { mkIRExprVec_7(
-            arg1.0,
-            arg2.0,
-            arg3.0,
-            arg4.0,
-            arg5.0,
-            arg6.0,
-            arg7.0,
-        ) }.into()
+        unsafe { mkIRExprVec_7(arg1.0, arg2.0, arg3.0, arg4.0, arg5.0, arg6.0, arg7.0) }.into()
     }
 
     pub fn new8(
@@ -440,16 +415,12 @@ impl ExprVec<'_> {
         arg7: Expr,
         arg8: Expr,
     ) -> Self {
-        unsafe { mkIRExprVec_8(
-            arg1.0,
-            arg2.0,
-            arg3.0,
-            arg4.0,
-            arg5.0,
-            arg6.0,
-            arg7.0,
-            arg8.0,
-        ) }.into()
+        unsafe {
+            mkIRExprVec_8(
+                arg1.0, arg2.0, arg3.0, arg4.0, arg5.0, arg6.0, arg7.0, arg8.0,
+            )
+        }
+        .into()
     }
 
     pub fn new9(
@@ -463,17 +434,12 @@ impl ExprVec<'_> {
         arg8: Expr,
         arg9: Expr,
     ) -> Self {
-        unsafe { mkIRExprVec_9(
-            arg1.0,
-            arg2.0,
-            arg3.0,
-            arg4.0,
-            arg5.0,
-            arg6.0,
-            arg7.0,
-            arg8.0,
-            arg9.0,
-        ) }.into()
+        unsafe {
+            mkIRExprVec_9(
+                arg1.0, arg2.0, arg3.0, arg4.0, arg5.0, arg6.0, arg7.0, arg8.0, arg9.0,
+            )
+        }
+        .into()
     }
 
     pub fn new13(
@@ -491,21 +457,13 @@ impl ExprVec<'_> {
         arg12: Expr,
         arg13: Expr,
     ) -> Self {
-        unsafe { mkIRExprVec_13(
-            arg1.0,
-            arg2.0,
-            arg3.0,
-            arg4.0,
-            arg5.0,
-            arg6.0,
-            arg7.0,
-            arg8.0,
-            arg9.0,
-            arg10.0,
-            arg11.0,
-            arg12.0,
-            arg13.0,
-        ) }.into()
+        unsafe {
+            mkIRExprVec_13(
+                arg1.0, arg2.0, arg3.0, arg4.0, arg5.0, arg6.0, arg7.0, arg8.0, arg9.0, arg10.0,
+                arg11.0, arg12.0, arg13.0,
+            )
+        }
+        .into()
     }
 }
 
@@ -544,7 +502,10 @@ impl Expr<'_> {
     // Reimplemented, since the original is a 'static inline' function, and isn't linked
     // into libvex.a
     pub fn is_atom(&self) -> bool {
-        matches!(unsafe { (*self.0).tag }, IRExprTag::Iex_RdTmp | IRExprTag::Iex_Const)
+        matches!(
+            unsafe { (*self.0).tag },
+            IRExprTag::Iex_RdTmp | IRExprTag::Iex_Const
+        )
     }
 
     pub unsafe fn binder(binder: Int) -> Self {
@@ -897,13 +858,8 @@ impl IRSB<'_> {
         unsafe { (*self.inner).tyenv }.into()
     }
 
-    pub fn iter_stmts(&self) -> impl Iterator<Item=Stmt> {
-        unsafe {
-            slice::from_raw_parts(
-                (*self.inner).stmts,
-                (*self.inner).stmts_used as usize,
-            )
-        }
+    pub fn iter_stmts(&self) -> impl Iterator<Item = Stmt> {
+        unsafe { slice::from_raw_parts((*self.inner).stmts, (*self.inner).stmts_used as usize) }
             .iter()
             .map(|stmt| (*stmt).into())
     }
@@ -946,19 +902,16 @@ impl IRSB<'_> {
         (unsafe { isFlatIRSB(self.inner) }) != 0
     }
 
-    pub fn sanity_check(
-        &self,
-        caller: &str,
-        require_flatness: bool,
-        guest_word_size: Type,
-    ) {
+    pub fn sanity_check(&self, caller: &str, require_flatness: bool, guest_word_size: Type) {
         let caller = CString::new(caller).unwrap();
-        unsafe { sanityCheckIRSB(
-            self.inner,
-            caller.as_ptr(),
-            require_flatness as Bool,
-            guest_word_size,
-        )}
+        unsafe {
+            sanityCheckIRSB(
+                self.inner,
+                caller.as_ptr(),
+                require_flatness as Bool,
+                guest_word_size,
+            )
+        }
     }
 }
 
@@ -982,9 +935,9 @@ mod test {
     // Ensure that multiple irsbs can be created in the same thread.
     #[test]
     fn multiple_irsbs() {
+        use crate::x86::offset::EDX;
         use IREndness::Iend_LE as LE;
         use Type::Ity_I32 as I32;
-        use crate::x86::offset::EDX;
 
         let irsb1 = IRSB::default();
         let tmp1 = irsb1.type_env().new_tmp(I32);
@@ -993,7 +946,7 @@ mod test {
         // scope, and we're transferring ownership directly to it.
         irsb1.add_stmt(Stmt::wr_tmp(
             tmp1,
-            Expr::const_(unsafe { Const::u32(0xdeadbeef) })
+            Expr::const_(unsafe { Const::u32(0xdeadbeef) }),
         ));
 
         let irsb2 = IRSB::default();

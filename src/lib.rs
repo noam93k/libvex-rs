@@ -11,15 +11,15 @@ pub mod ir;
 mod logger;
 
 // arch specific data:
-pub mod x86;
 pub mod amd64;
-pub mod ppc32;
-pub mod ppc64;
 pub mod arm;
 pub mod arm64;
-pub mod s390x;
 pub mod mips32;
 pub mod mips64;
+pub mod ppc32;
+pub mod ppc64;
+pub mod s390x;
+pub mod x86;
 
 unsafe extern "C" fn failure_exit() {
     panic!("LibVEX encountered a critical error.")
@@ -198,15 +198,13 @@ impl TranslateArgs {
                 &mut self.0,
                 vtr.as_mut_ptr(),
                 #[allow(const_item_mutation)]
-                &mut vex_sys::VexRegisterUpdates::VexRegUpd_INVALID)
+                &mut vex_sys::VexRegisterUpdates::VexRegUpd_INVALID,
+            )
         };
         let vtr = unsafe { vtr.assume_init() };
 
         match vtr.status {
-            vex_sys::VexTranslateResult_VexTransOK => Ok(ir::IRSB {
-                inner: irsb,
-                _lock,
-            }),
+            vex_sys::VexTranslateResult_VexTransOK => Ok(ir::IRSB { inner: irsb, _lock }),
             vex_sys::VexTranslateResult_VexTransAccessFail => Err(TranslateError::AccessFail),
             vex_sys::VexTranslateResult_VexTransOutputFull => Err(TranslateError::OutputFull),
         }
@@ -302,7 +300,7 @@ lazy_static! {
 
 #[cfg(test)]
 mod test {
-    use super::{Arch, VexEndness, TranslateArgs};
+    use super::{Arch, TranslateArgs, VexEndness};
 
     #[test]
     fn sanity() {
@@ -339,7 +337,7 @@ mod test {
             super::ir::ExprEnum::Const(c) => match c.as_enum() {
                 super::ir::ConstEnum::U64(addr) => addr,
                 _ => panic!(),
-            }
+            },
             _ => panic!(),
         };
 
@@ -361,11 +359,9 @@ mod test {
 
         let mut buf = [0; 1000];
 
-        let size = vta.translate(
-            translate as *const _,
-            translate as _,
-            &mut buf,
-        ).unwrap();
+        let size = vta
+            .translate(translate as *const _, translate as _, &mut buf)
+            .unwrap();
 
         assert!(size > 300);
     }
@@ -387,28 +383,27 @@ mod test {
                 VexEndness::VexEndnessLE,
             );
 
-            assert!(vta.front_end(
-                case1 as *const _,
-                case1 as _,
-            ).is_err());
+            assert!(vta.front_end(case1 as *const _, case1 as _,).is_err());
         }
 
         // lift, then create 1 IRSB
         #[test]
         fn case2() {
-            use crate::ir::{Const, Expr, JumpKind, Op, Stmt};
-            use crate::ir::Type::Ity_I64 as I64;
             use crate::ir::IREndness::Iend_LE as LE;
+            use crate::ir::Type::Ity_I64 as I64;
+            use crate::ir::{Const, Expr, JumpKind, Op, Stmt};
             let mut vta = TranslateArgs::new(
                 Arch::VexArchAMD64,
                 Arch::VexArchAMD64,
                 VexEndness::VexEndnessLE,
             );
 
-            let lifted = vta.front_end(
-                [0xb8, 0, 0, 0, 0, 0xe8, 0x5b, 0xfd, 0xff, 0xff].as_ptr(),
-                0x12eb,
-            ).unwrap();
+            let lifted = vta
+                .front_end(
+                    [0xb8, 0, 0, 0, 0, 0xe8, 0x5b, 0xfd, 0xff, 0xff].as_ptr(),
+                    0x12eb,
+                )
+                .unwrap();
 
             let mut expected = IRSB::new();
             unsafe {
@@ -416,14 +411,8 @@ mod test {
                 expected.set_jump_kind(JumpKind::Ijk_Call);
                 expected.set_offs_ip(184);
                 expected.add_stmt(Stmt::imark(0x12eb, 5, 0));
-                expected.add_stmt(Stmt::put(
-                    16,
-                    Expr::const_(Const::u64(0))
-                ));
-                expected.add_stmt(Stmt::put(
-                    184,
-                    Expr::const_(Const::u64(0x12f0))
-                ));
+                expected.add_stmt(Stmt::put(16, Expr::const_(Const::u64(0))));
+                expected.add_stmt(Stmt::put(184, Expr::const_(Const::u64(0x12f0))));
                 expected.add_stmt(Stmt::imark(0x12f0, 5, 0));
                 let _ = expected.type_env().new_tmp(I64);
                 let _ = expected.type_env().new_tmp(I64);
@@ -433,27 +422,24 @@ mod test {
                 let t5 = expected.type_env().new_tmp(I64);
                 let _ = expected.type_env().new_tmp(I64);
 
+                expected.add_stmt(Stmt::wr_tmp(t4, Expr::get(48, I64)));
                 expected.add_stmt(Stmt::wr_tmp(
-                    t4, Expr::get(48, I64)
+                    t3,
+                    Expr::binop(Op::Iop_Sub64, Expr::rd_tmp(t4), Expr::const_(Const::u64(8))),
                 ));
-                expected.add_stmt(Stmt::wr_tmp(
-                    t3, Expr::binop(Op::Iop_Sub64,
-                                    Expr::rd_tmp(t4),
-                                    Expr::const_(Const::u64(8)))
-                ));
-                expected.add_stmt(Stmt::put(
-                    48,
-                    Expr::rd_tmp(t3)
-                ));
+                expected.add_stmt(Stmt::put(48, Expr::rd_tmp(t3)));
                 expected.add_stmt(Stmt::store(
                     LE,
                     Expr::rd_tmp(t3),
                     Expr::const_(Const::u64(0x12f5)),
                 ));
                 expected.add_stmt(Stmt::wr_tmp(
-                    t5, Expr::binop(Op::Iop_Sub64,
-                                    Expr::rd_tmp(t3),
-                                    Expr::const_(Const::u64(0x80)))
+                    t5,
+                    Expr::binop(
+                        Op::Iop_Sub64,
+                        Expr::rd_tmp(t3),
+                        Expr::const_(Const::u64(0x80)),
+                    ),
                 ));
                 expected.add_stmt(Stmt::abi_hint(
                     Expr::rd_tmp(t5),

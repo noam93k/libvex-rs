@@ -6,7 +6,6 @@ use std::str::Utf8Error;
 use lazy_static::lazy_static;
 use parking_lot::ReentrantMutex;
 
-
 pub struct VexLogger(Option<Vec<u8>>);
 
 impl Write for VexLogger {
@@ -33,8 +32,8 @@ lazy_static! {
 }
 
 pub fn with<F, R>(mut f: F) -> (R, Result<String, Utf8Error>)
-    where
-    F: FnMut() -> R
+where
+    F: FnMut() -> R,
 {
     let guard = VEX_LOG.lock();
     let old = guard.borrow_mut().0.replace(Vec::new());
