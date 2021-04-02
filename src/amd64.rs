@@ -1,35 +1,5 @@
+use libvex_macros::{import_hwcaps, import_offsets};
 
-pub use vex_sys::{
-    OFFSET_amd64_RAX,
-    OFFSET_amd64_RBX,
-    OFFSET_amd64_RCX,
-    OFFSET_amd64_RDX,
-    OFFSET_amd64_RSI,
-    OFFSET_amd64_RDI,
-    OFFSET_amd64_RSP,
-    OFFSET_amd64_RBP,
-    OFFSET_amd64_R8,
-    OFFSET_amd64_R9,
-    OFFSET_amd64_R10,
-    OFFSET_amd64_R11,
-    OFFSET_amd64_R12,
-    OFFSET_amd64_R13,
-    OFFSET_amd64_R14,
-    OFFSET_amd64_R15,
-    OFFSET_amd64_RIP,
-
-    VEX_HWCAPS_AMD64_SSE3,
-    VEX_HWCAPS_AMD64_SSSE3,
-    VEX_HWCAPS_AMD64_CX16,
-    VEX_HWCAPS_AMD64_LZCNT,
-    VEX_HWCAPS_AMD64_AVX,
-    VEX_HWCAPS_AMD64_RDTSCP,
-    VEX_HWCAPS_AMD64_BMI,
-    VEX_HWCAPS_AMD64_AVX2,
-    VEX_HWCAPS_AMD64_RDRAND,
-    VEX_HWCAPS_AMD64_F16C,
-    VEX_HWCAPS_AMD64_RDSEED,
-};
 pub struct State(pub vex_sys::VexGuestAMD64State);
 
 impl Default for State {
@@ -40,4 +10,12 @@ impl Default for State {
             this.assume_init()
         })
     }
+}
+
+import_offsets! {
+    amd64 => { R10, R11, R12, R13, R14, R15, R8, R9, RAX, RBP, RBX, RCX, RDI, RDX, RIP, RSI, RSP }
+}
+
+import_hwcaps! {
+    amd64 => { AVX, AVX2, BMI, CX16, F16C, LZCNT, RDRAND, RDSEED, RDTSCP, SSE3, SSSE3 }
 }

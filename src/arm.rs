@@ -1,21 +1,4 @@
-
-pub use vex_sys::{
-    OFFSET_arm_R0,
-    OFFSET_arm_R1,
-    OFFSET_arm_R2,
-    OFFSET_arm_R3,
-    OFFSET_arm_R4,
-    OFFSET_arm_R5,
-    OFFSET_arm_R7,
-    OFFSET_arm_R13,
-    OFFSET_arm_R14,
-    OFFSET_arm_R15T,
-
-    VEX_HWCAPS_ARM_VFP,
-    VEX_HWCAPS_ARM_VFP2,
-    VEX_HWCAPS_ARM_VFP3,
-    VEX_HWCAPS_ARM_NEON,
-};
+use libvex_macros::{import_hwcaps, import_offsets};
 
 pub struct State(pub vex_sys::VexGuestARMState);
 
@@ -28,3 +11,7 @@ impl Default for State {
         })
     }
 }
+
+import_offsets! { arm => { R0, R1, R13, R14, R15T, R2, R3, R4, R5, R7 } }
+
+import_hwcaps! { arm => { NEON, VFP, VFP2, VFP3 } }

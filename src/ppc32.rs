@@ -1,29 +1,4 @@
-
-pub use vex_sys::{
-    OFFSET_ppc32_GPR0,
-    OFFSET_ppc32_GPR1,
-    OFFSET_ppc32_GPR2,
-    OFFSET_ppc32_GPR3,
-    OFFSET_ppc32_GPR4,
-    OFFSET_ppc32_GPR5,
-    OFFSET_ppc32_GPR6,
-    OFFSET_ppc32_GPR7,
-    OFFSET_ppc32_GPR8,
-    OFFSET_ppc32_GPR9,
-    OFFSET_ppc32_GPR10,
-    OFFSET_ppc32_CIA,
-    OFFSET_ppc32_CR0_0,
-
-    VEX_HWCAPS_PPC32_F,
-    VEX_HWCAPS_PPC32_V,
-    VEX_HWCAPS_PPC32_FX,
-    VEX_HWCAPS_PPC32_GX,
-    VEX_HWCAPS_PPC32_VX,
-    VEX_HWCAPS_PPC32_DFP,
-    VEX_HWCAPS_PPC32_ISA2_07,
-    VEX_HWCAPS_PPC32_ISA3_0,
-    VEX_HWCAPS_PPC32_ISA3_1,
-};
+use libvex_macros::{import_hwcaps, import_offsets};
 
 pub struct State(pub vex_sys::VexGuestPPC32State);
 
@@ -36,3 +11,9 @@ impl Default for State {
         })
     }
 }
+
+import_offsets! {
+    ppc32 => { CIA, CR0_0, GPR0, GPR1, GPR10, GPR2, GPR3, GPR4, GPR5, GPR6, GPR7, GPR8, GPR9 }
+}
+
+import_hwcaps! { ppc32 => { DFP, F, FX, GX, ISA2_07, ISA3_0, ISA3_1, V, VX } }

@@ -1,30 +1,4 @@
-
-pub use vex_sys::{
-    OFFSET_arm64_X0,
-    OFFSET_arm64_X1,
-    OFFSET_arm64_X2,
-    OFFSET_arm64_X3,
-    OFFSET_arm64_X4,
-    OFFSET_arm64_X5,
-    OFFSET_arm64_X6,
-    OFFSET_arm64_X7,
-    OFFSET_arm64_X8,
-    OFFSET_arm64_XSP,
-    OFFSET_arm64_PC,
-
-    VEX_HWCAPS_ARM64_FHM,
-    VEX_HWCAPS_ARM64_DPBCVAP,
-    VEX_HWCAPS_ARM64_DPBCVADP,
-    VEX_HWCAPS_ARM64_SM3,
-    VEX_HWCAPS_ARM64_SM4,
-    VEX_HWCAPS_ARM64_SHA3,
-    VEX_HWCAPS_ARM64_RDM,
-    VEX_HWCAPS_ARM64_ATOMICS,
-    VEX_HWCAPS_ARM64_I8MM,
-    VEX_HWCAPS_ARM64_BF16,
-    VEX_HWCAPS_ARM64_FP16,
-    VEX_HWCAPS_ARM64_VFP16,
-};
+use libvex_macros::{import_hwcaps, import_offsets};
 
 pub struct State(pub vex_sys::VexGuestARM64State);
 
@@ -36,4 +10,10 @@ impl Default for State {
             this.assume_init()
         })
     }
+}
+
+import_offsets! { arm64 => { PC, X0, X1, X2, X3, X4, X5, X6, X7, X8, XSP } }
+
+import_hwcaps! {
+    arm64 => { ATOMICS, BF16, DPBCVADP, DPBCVAP, FHM, FP16, I8MM, RDM, SHA3, SM3, SM4, VFP16 }
 }
