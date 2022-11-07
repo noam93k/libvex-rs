@@ -6,6 +6,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use vex_sys;
 
 pub use vex_sys::{Addr, VexArch as Arch, VexEndness};
+pub use libvex_macros::IRSB;
 
 pub mod ir;
 mod logger;

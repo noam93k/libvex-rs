@@ -844,8 +844,12 @@ impl Default for IRSB<'_> {
 // Note: can panic if `next` is not set.
 impl Display for IRSB<'_> {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        let ((), pp) = logger::with(|| unsafe { ppIRSB(self.inner) });
-        pp.unwrap().fmt(f)
+        if unsafe { (*self.inner).next }.is_null() {
+            write!(f, "IRSB<UNINIT?>")
+        } else {
+            let ((), pp) = logger::with(|| unsafe { ppIRSB(self.inner) });
+            pp.unwrap().fmt(f)
+        }
     }
 }
 
