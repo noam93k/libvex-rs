@@ -22,7 +22,7 @@ pub mod ppc64;
 pub mod s390x;
 pub mod x86;
 
-unsafe extern "C" fn failure_exit() {
+unsafe extern "C" fn failure_exit() -> ! {
     panic!("LibVEX encountered a critical error.")
 }
 

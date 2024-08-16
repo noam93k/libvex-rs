@@ -134,14 +134,14 @@ fn main() -> Result<()> {
         // Generate bindings
         let bindings = bindgen::Builder::default()
             .header("wrapper.h")
-            .blacklist_type("_IRStmt__bindgen_ty_1__bindgen_ty_1")
-            .rustified_enum("*")
+            .blocklist_type("_IRStmt__bindgen_ty_1__bindgen_ty_1")
+            .rustified_enum(".*")
             .clang_args(vex_headers()?
                         .into_iter()
                         .map(|dir| format!("-I{}", dir))
             )
             .generate()
-            .map_err(|()| "Unable to generate bindings")?;
+            .map_err(|_| "Unable to generate bindings")?;
         bindings.write_to_file(out_dir.join("bindings.rs"))?;
     }
 
