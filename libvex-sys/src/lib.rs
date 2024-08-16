@@ -36,7 +36,7 @@ mod test {
 
     use crate::*;
 
-    unsafe extern "C" fn failure_exit() {
+    unsafe extern "C" fn failure_exit() -> ! {
         panic!("LibVEX encountered a critical error.")
     }
 
